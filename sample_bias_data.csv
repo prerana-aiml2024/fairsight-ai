@@ -1,0 +1,21 @@
+gender,race,age,education,loan_status
+Male,White,35,Graduate,Approved
+Female,Black,28,Undergraduate,Rejected
+Male,Asian,45,Graduate,Approved
+Female,White,32,Graduate,Approved
+Male,Hispanic,24,High School,Rejected
+Female,Asian,29,Graduate,Approved
+Male,Black,41,Undergraduate,Rejected
+Female,White,38,Graduate,Approved
+Male,White,22,High School,Rejected
+Female,Black,33,Undergraduate,Rejected
+Male,Asian,50,Graduate,Approved
+Female,Hispanic,27,Undergraduate,Rejected
+Male,White,31,Graduate,Approved
+Female,Black,44,Undergraduate,Rejected
+Male,Asian,36,Graduate,Approved
+Female,White,25,Graduate,Approved
+Male,Hispanic,30,High School,Rejected
+Female,Asian,42,Graduate,Approved
+Male,Black,26,Undergraduate,Rejected
+Female,White,34,Graduate,Approved

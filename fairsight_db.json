@@ -1,0 +1,53 @@
+{
+    "users": {
+        "preranaanil09@gmail.com": {
+            "name": "prerana",
+            "email": "preranaanil09@gmail.com",
+            "age": 25,
+            "dob": "1995-01-01",
+            "profile_pic": null
+        },
+        "preranaanil09@gmail/com": {
+            "name": "prerana",
+            "email": "preranaanil09@gmail/com",
+            "age": 25,
+            "dob": "1995-01-01",
+            "profile_pic": null
+        },
+        "preranaanil07@gmail.com": {
+            "name": "prerana",
+            "email": "preranaanil07@gmail.com",
+            "age": 25,
+            "dob": "1995-01-01",
+            "password": "nikiniki9",
+            "profile_pic": null
+        }
+    },
+    "histories": {
+        "preranaanil09@gmail.com": [
+            {
+                "date": "2026-04-15 16:42:40",
+                "filename": "sample_adult.csv",
+                "domain": "Bank Loans/Credit",
+                "rows": 12,
+                "cols": 9
+            }
+        ],
+        "preranaanil09@gmail/com": [
+            {
+                "date": "2026-04-15 17:43:05",
+                "filename": "sample_adult.csv",
+                "domain": "Hiring/Resume Audit",
+                "rows": 12,
+                "cols": 9
+            },
+            {
+                "date": "2026-04-15 17:43:08",
+                "filename": "sample_adult.csv",
+                "domain": "Hiring/Resume Audit",
+                "rows": 12,
+                "cols": 9
+            }
+        ]
+    }
+}
