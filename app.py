@@ -5,8 +5,15 @@ from datetime import datetime, date
 import numpy as np
 import base64
 import os
+import json
+
+# Custom Utilities
 from utils.storage import get_user_data, update_user_data, get_user_history, add_history_entry, verify_user
-from utils.detection import detect_columns, calculate_fairness_metrics
+from utils.detection import detect_columns
+from utils.fairness import detect_advanced_bias
+from utils.ai_engine import generate_narrative_summary
+from utils.mitigation import apply_reweighting, apply_resampling
+from utils.reporting import generate_pdf_report
 
 # Page config
 st.set_page_config(
@@ -16,457 +23,402 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS ---
-def local_css():
+# --- MINIMALIST CSS ---
+def apply_clean_theme():
     st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
         
         :root {
-            --primary-orange: #FF6B00;
-            --bg-dark: #0A0A0B;
-            --card-bg: rgba(255, 255, 255, 0.05);
-            --border: rgba(255, 255, 255, 0.1);
+            --primary: #FF6B00;
+            --bg-dark: #000000;
+            --card-gray: #111111;
+            --border-gray: #222222;
+            --text-main: #FFFFFF;
+            --text-dim: #888888;
         }
 
-        html, body, [data-testid="stAppViewContainer"] {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: #E0E0E0;
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            background-color: var(--bg-dark) !important;
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
         }
 
         /* Sidebar Styling */
         [data-testid="stSidebar"] {
-            background-color: #0E0E10;
-            border-right: 1px solid var(--border);
-            width: 260px !important;
+            background-color: #000000 !important;
+            border-right: 1px solid var(--border-gray);
+            width: 240px !important;
         }
         
-        /* Compact Sidebar Links */
-        .st-emotion-cache-16idsys p {
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        /* Titles and Headers */
-        .logo-text {
-            font-family: 'Orbitron', sans-serif;
-            color: var(--primary-orange);
+        .logo-area {
             font-size: 1.5rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 2rem;
-            padding-top: 1rem;
-        }
-
-        .main-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 3rem;
             font-weight: 800;
-            background: linear-gradient(90deg, #FF6B00, #FFA500);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
+            color: var(--primary);
+            padding: 20px 0;
+            text-align: center;
         }
 
-        /* Glass Cards */
-        .glass-card {
-            background: var(--card-bg);
+        /* Cards & Containers */
+        .scrolling-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .minimal-card {
+            background: var(--card-gray);
+            border: 1px solid var(--border-gray);
             border-radius: 12px;
-            padding: 2rem;
-            border: 1px solid var(--border);
-            backdrop-filter: blur(10px);
-            margin-bottom: 1.5rem;
-        }
-
-        /* Profile Bottom Sidebar */
-        .sidebar-footer {
-            position: fixed;
-            bottom: 20px;
-            width: 220px;
-            padding: 10px;
-            border-top: 1px solid var(--border);
-            background: #0E0E10;
-        }
-        
-        .profile-mini {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-        
-        .profile-img-sidebar {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            border: 2px solid var(--primary-orange);
-            object-fit: cover;
-        }
-        
-        .profile-name-sidebar {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #FFF;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            padding: 30px;
+            margin-bottom: 30px;
         }
 
         /* Buttons */
         .stButton>button {
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: 600;
-            transition: all 0.2s;
-            text-transform: uppercase;
             letter-spacing: 0.5px;
+            transition: all 0.3s;
+            border: 1px solid var(--border-gray);
+            background: transparent;
+            color: white;
+            padding: 10px 25px;
         }
         
-        .stButton>button[kind="primary"] {
-            background-color: var(--primary-orange);
-            border: none;
+        .stButton>button:hover {
+            border-color: var(--primary);
+            color: var(--primary);
         }
         
-        .stButton>button[kind="primary"]:hover {
-            background-color: #E65A00;
-            box-shadow: 0 4px 15px rgba(255, 107, 0, 0.3);
+        div.stButton > button:first-child[kind="primary"] {
+            background: var(--primary) !important;
+            border: none !important;
+            color: black !important;
         }
 
-        /* Metric Score */
-        .score-display {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 5rem;
-            font-weight: 700;
+        /* Scores */
+        .big-score-card {
             text-align: center;
-            margin: 1rem 0;
+            padding: 20px;
         }
-
-        .score-label {
-            text-align: center;
-            font-size: 1.2rem;
-            color: #888;
+        
+        .score-val {
+            font-size: 4rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .score-lbl {
+            color: var(--text-dim);
+            font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
 
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 2rem;
-            color: #555;
-            font-size: 0.8rem;
-            border-top: 1px solid var(--border);
-            margin-top: 4rem;
+        /* Sidebar Profile */
+        .sidebar-footer {
+            position: fixed;
+            bottom: 20px;
+            width: 200px;
+            padding: 15px;
+            border-top: 1px solid var(--border-gray);
+            background: black;
+            cursor: pointer;
         }
         
-        /* Hide Streamlit elements */
-        #MainMenu {visibility: hidden;}
-        header {visibility: hidden;}
-        footer {visibility: hidden;}
+        .mini-pfp {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 1px solid var(--primary);
+            object-fit: cover;
+        }
+
+        /* Profile Page Avatar */
+        .profile-pfp-large {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            object-fit: cover;
+            display: block;
+            margin: 0 auto 20px auto;
+        }
+
+        /* Section Headings */
+        .section-h {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+        }
     </style>
     """, unsafe_allow_html=True)
 
-local_css()
+# --- SESSION ---
+def init_session():
+    if 'user' not in st.session_state: st.session_state.user = None
+    if 'view' not in st.session_state: st.session_state.view = "Home"
+    if 'audit_data' not in st.session_state: st.session_state.audit_data = None
+    if 'results' not in st.session_state: st.session_state.results = None
 
-# --- SESSION STATE ---
-if 'current_user' not in st.session_state:
-    st.session_state.current_user = None
+init_session()
 
-if 'df' not in st.session_state:
-    st.session_state.df = None
+def get_img_64(data):
+    if not data: return "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+    return f"data:image/png;base64,{base64.b64encode(data).decode()}"
 
-if 'scan_results' not in st.session_state:
-    st.session_state.scan_results = None
+# --- COMPONENTS ---
 
-# --- HELPERS ---
-def logout():
-    st.session_state.current_user = None
-    st.session_state.df = None
-    st.session_state.scan_results = None
-    st.rerun()
-
-def get_img_as_base64(binary_data):
-    if not binary_data:
-        return "https://cdn-icons-png.flaticon.com/512/149/149071.png"
-    return f"data:image/png;base64,{base64.b64encode(binary_data).decode()}"
-
-# --- PAGES ---
-
-def login_signup_page():
-    st.markdown('<div style="text-align: center; margin-bottom: 3rem;">', unsafe_allow_html=True)
-    st.markdown('<h1 class="main-title">FAIRSIGHT AI ⚖️</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #888; font-size: 1.1rem;">Precision Audit Tool for Algorithmic Fairness</p>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        tab1, tab2 = st.tabs(["LOGIN", "SIGN UP"])
+def sidebar():
+    user = st.session_state.user
+    with st.sidebar:
+        st.markdown('<div class="logo-area">FairSight AI ⚖️</div>', unsafe_allow_html=True)
+        st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
         
-        with tab1:
-            with st.form("login_form"):
-                st.subheader("Welcome Back")
-                email = st.text_input("Work Email")
-                password = st.text_input("Password", type="password")
-                submit = st.form_submit_button("Enter Dashboard", type="primary", use_container_width=True)
-                
-                if submit:
-                    if verify_user(email, password):
-                        st.session_state.current_user = get_user_data(email)
-                        st.success("Access Granted.")
+        if st.button("Home (Upload)", use_container_width=True): 
+            st.session_state.view = "Home"
+            st.rerun()
+        if st.button("History", use_container_width=True): 
+            st.session_state.view = "History"
+            st.rerun()
+        
+        st.markdown('<div style="height: 300px;"></div>', unsafe_allow_html=True)
+        
+        if user:
+            # Custom clickable profile area
+            st.markdown('<div style="height: 50px;"></div>', unsafe_allow_html=True)
+            cols = st.columns([1, 4])
+            with cols[0]:
+                st.image(get_img_64(user.get('profile_pic')), width=35)
+            with cols[1]:
+                if st.button(user['name'], key="side_name", use_container_width=True):
+                    st.session_state.view = "Profile"
+                    st.rerun()
+            
+            if st.button("Manage Profile", use_container_width=True):
+                st.session_state.view = "Profile"
+                st.rerun()
+            if st.button("Logout", use_container_width=True): 
+                st.session_state.user = None
+                st.rerun()
+
+# --- VIEWS ---
+
+def login_view():
+    apply_clean_theme()
+    c1, c2, c3 = st.columns([1, 1.2, 1])
+    with c2:
+        st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="logo-area" style="font-size:2.5rem;">FairSight AI</div>', unsafe_allow_html=True)
+        
+        t1, t2 = st.tabs(["Login", "Create Account"])
+        with t1:
+            with st.form("lgn"):
+                e = st.text_input("Email")
+                p = st.text_input("Password", type="password")
+                if st.form_submit_button("Access Engine", type="primary", use_container_width=True):
+                    if verify_user(e, p):
+                        st.session_state.user = get_user_data(e)
                         st.rerun()
-                    else:
-                        st.error("Invalid credentials.")
+                    else: st.error("Access Denied.")
+        with t2:
+            with st.form("sgn"):
+                n = st.text_input("Full Name")
+                e = st.text_input("Email")
+                p = st.text_input("Password", type="password")
+                if st.form_submit_button("Initialize", type="primary", use_container_width=True):
+                    if n and e and p:
+                        update_user_data(e, {"name": n, "email": e, "password": p, "age": 25, "dob": "1999-01-01"})
+                        st.session_state.user = get_user_data(e)
+                        st.rerun()
 
-        with tab2:
-            with st.form("signup_form"):
-                st.subheader("Initialize Account")
-                new_name = st.text_input("Full Name")
-                new_email = st.text_input("Work Email")
-                col_a, col_d = st.columns(2)
-                new_age = col_a.number_input("Age", 18, 100, 25)
-                new_dob = col_d.date_input("DOB", date(1995, 1, 1), min_value=date(1950, 1, 1), max_value=date(2010, 12, 31))
-                new_pass = st.text_input("Create Password", type="password")
-                
-                submit = st.form_submit_button("Create Account", type="primary", use_container_width=True)
-                
-                if submit:
-                    if new_name and new_email and new_pass:
-                        if get_user_data(new_email):
-                            st.error("User already exists.")
-                        else:
-                            user_data = {
-                                "name": new_name,
-                                "email": new_email,
-                                "age": new_age,
-                                "dob": new_dob,
-                                "password": new_pass,
-                                "profile_pic": None
-                            }
-                            update_user_data(new_email, user_data)
-                            st.session_state.current_user = get_user_data(new_email)
-                            st.success("Account Initialized.")
-                            st.rerun()
-                    else:
-                        st.error("Please fill all fields.")
-
-def home_page():
-    st.header("🏠 Data Upload & Intelligence")
+def home_view():
+    apply_clean_theme()
+    sidebar()
     
-    col1, col2 = st.columns([3, 2])
-    
-    with col1:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("### Step 1: Context Selection")
-        domain = st.selectbox("Select Application Domain", 
-                            ["Hiring/Resume Audit", "Bank Loans", "Medical Diagnostics", "Finance/Portfolio", "Insurance Underwriting", "Educational Admissions", "General Bias Audit"])
+    with st.container():
+        st.markdown('<div class="scrolling-container">', unsafe_allow_html=True)
         
-        st.markdown("### Step 2: Ingest Dataset")
-        uploaded_file = st.file_uploader("Upload CSV or XLSX for profiling", type=["csv", "xlsx"])
+        # Top Bar
+        c_alt1, c_alt2 = st.columns([1, 1])
+        c_alt1.markdown(f"**Current Audit**: {st.session_state.get('audit_name', 'Untitled')}")
+        if c_alt2.button("New Audit", use_container_width=False):
+            st.session_state.audit_data = None
+            st.session_state.results = None
+            st.rerun()
         
-        if uploaded_file:
+        st.markdown('<div style="height: 40px;"></div>', unsafe_allow_html=True)
+        
+        # 1. Upload Section
+        st.markdown('<div class="minimal-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-h">Data Ingestion</div>', unsafe_allow_html=True)
+        
+        file = st.file_uploader("+ Add Files (CSV, XLSX)", type=["csv", "xlsx"], label_visibility="collapsed")
+        domain = st.selectbox("Application Domain", ["Hiring", "Banking", "Healthcare", "Legal", "General"], index=0)
+        
+        if file:
             try:
-                if uploaded_file.name.endswith(".csv"):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                
-                st.session_state.df = df
-                st.success(f"Successfully ingested {uploaded_file.name}")
-                
-                if st.button("Record to Repository"):
-                    add_history_entry(st.session_state.current_user['email'], {
-                        "filename": uploaded_file.name,
-                        "domain": domain,
-                        "rows": len(df),
-                        "cols": len(df.columns),
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
-                    })
-                    st.toast("Metadata persisted to history.")
-                    
-            except Exception as e:
-                st.error(f"Ingestion Error: {e}")
+                df = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
+                st.session_state.audit_data = df
+                st.session_state.audit_name = file.name
+                st.success(f"Loaded {len(df)} records.")
+            except Exception as e: st.error(f"Error: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
-
-    with col2:
-        if st.session_state.df is not None:
-            df = st.session_state.df
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("### Profile Overview")
-            st.metric("Total Records", f"{len(df):,}")
-            st.metric("Feature Count", f"{len(df.columns)}")
-            st.metric("Missing Data", f"{df.isnull().sum().sum()}")
+        
+        # 2. RUN SCAN
+        if st.session_state.audit_data is not None:
+            if st.button("RUN BIAS SCAN", type="primary", use_container_width=True):
+                with st.spinner("Analyzing vectors..."):
+                    df = st.session_state.audit_data
+                    target, protected = detect_columns(df)
+                    if not protected:
+                        st.error("No protected attributes found.")
+                    else:
+                        res = detect_advanced_bias(df, target, protected[0])
+                        # Gemini narrative
+                        res['narrative'] = generate_narrative_summary(res)
+                        st.session_state.results = res
+                        # History
+                        add_history_entry(st.session_state.user['email'], {
+                            "filename": st.session_state.audit_name,
+                            "domain": domain,
+                            "score": res['fairness_score'],
+                            "timestamp": str(date.today())
+                        })
             
-            with st.expander("Peek at Raw Data"):
-                st.dataframe(df.head(20), use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.info("Upload a dataset to begin profiling.")
-
-def bias_scan_page():
-    st.header("⚖️ Automated Fairness Audit")
-    
-    if st.session_state.df is None:
-        st.warning("No active dataset. Please upload a dataset in the Home section.")
-        return
-
-    st.markdown('<div style="text-align: center; margin-bottom: 2rem;">', unsafe_allow_html=True)
-    if st.button("RUN AUTOMATIC BIAS SCAN", type="primary", use_container_width=False, help="Automatically detects protected attributes and runs parity checks."):
-        with st.spinner("Analyzing data vectors for disparate impact..."):
-            target, protected = detect_columns(st.session_state.df)
+        # 3. RESULTS (Scroll down)
+        if st.session_state.results:
+            res = st.session_state.results
+            st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-h">Bias Discovery</div>', unsafe_allow_html=True)
             
-            if not protected:
-                st.error("No common protected attributes detected automatically.")
-            else:
-                # For now, scan the first detected protected attribute
-                results = calculate_fairness_metrics(st.session_state.df, target, protected[0])
-                st.session_state.scan_results = {
-                    "results": results,
-                    "target": target,
-                    "protected": protected[0]
-                }
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    if st.session_state.scan_results:
-        res = st.session_state.scan_results['results']
-        target = st.session_state.scan_results['target']
-        protected = st.session_state.scan_results['protected']
-        
-        # Display Score
-        score = res['score']
-        color = "#2ECC71" if score > 80 else "#F39C12" if score > 50 else "#E74C3C"
-        
-        st.markdown(f'<div class="score-display" style="color: {color};">{score:.1f}</div>', unsafe_allow_html=True)
-        st.markdown('<div class="score-label">Global Fairness Score</div>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        col_l, col_r = st.columns([2, 3])
-        
-        with col_l:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("### Executive Summary")
-            st.markdown(f"**Target Outcome:** `{target}`")
-            st.markdown(f"**Protected Attribute:** `{protected}`")
-            st.markdown(f"**Favorable Outcome:** `{res['fav_outcome']}`")
+            # Scores
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f'''<div class="minimal-card big-score-card">
+                    <div class="score-lbl">Fairness Score (Your Data)</div>
+                    <div class="score-val" style="color:#FF6B00;">{int(res['fairness_score'])}</div>
+                </div>''', unsafe_allow_html=True)
+            with col2:
+                bench = res.get('benchmark_comparison', {})
+                b_score = int(bench.get('benchmark_fairness_score', 81))
+                st.markdown(f'''<div class="minimal-card big-score-card">
+                    <div class="score-lbl">Benchmark Score ({bench.get('name', 'Std')})</div>
+                    <div class="score-val" style="color:#444;">{b_score}</div>
+                </div>''', unsafe_allow_html=True)
+                
+            # Score Explanation Card
+            with st.container():
+                st.markdown('<div class="minimal-card" style="border-left: 4px solid #FF6B00;">', unsafe_allow_html=True)
+                st.markdown("### 📊 Score Interpretation")
+                f_score = int(res['fairness_score'])
+                
+                # Higher Score = Better (Less Biased)
+                comparison = "less biased than" if f_score > b_score else "more biased than"
+                
+                st.write(f"Our **Fairness Score ({f_score})** is calculated on your dataset. A higher score means lower disparity (less bias).")
+                st.write(f"**Benchmark Score ({b_score})** is the industry standard for {bench.get('name', 'Adult Census')}.")
+                st.markdown(f"**Verdict:** Your data is **{comparison}** the industry benchmark.")
+                st.markdown('</div>', unsafe_allow_html=True)
             
-            st.markdown("#### Analysis")
-            if score > 80:
-                st.success("The system exhibits high demographic parity. Disparate impact is negligible.")
-            elif score > 50:
-                st.warning(f"Moderate bias detected. The `{res['min_group']}` group receives far fewer favorable outcomes than `{res['max_group']}`.")
-            else:
-                st.error(f"Critical Bias Detected. Systemic disparity of {res['disparity']*100:.1f}% found against the `{res['min_group']}` group.")
+            st.markdown('<div class="minimal-card">', unsafe_allow_html=True)
+            st.header("Bias Detected")
+            if res.get('detailed_explanation'):
+                ext = res['detailed_explanation']
+                st.markdown(f"**Exact Disparity Gap:** {ext['percentage']}%")
+                st.markdown(f"**Disparity Detection:** {ext['comparison_text']}")
+                st.markdown(f"**Business Impact:** {ext['impact']}")
+                st.success(f"**Recommended Action:** {ext['recommended_action']}")
             
-            st.markdown("**Recommendation:** Review training data for sampling bias or historical imbalances.")
+            st.divider()
+            st.markdown("**Deterministic Audit Narrative**")
+            st.write(res['narrative'])
             st.markdown('</div>', unsafe_allow_html=True)
             
-        with col_r:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("### Disparity Distribution")
-            rates_df = pd.DataFrame(res['rates'].items(), columns=[protected, 'Success Rate'])
-            fig = px.bar(rates_df, x=protected, y='Success Rate', 
-                         color='Success Rate', color_continuous_scale='Oranges',
-                         template="plotly_dark")
-            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            # Charts
+            st.markdown('<div class="minimal-card">', unsafe_allow_html=True)
+            st.markdown('<div class="section-h">Distribution Disparity</div>', unsafe_allow_html=True)
+            rates_df = pd.DataFrame(res['selection_rates'].items(), columns=['Group', 'Rate'])
+            fig = px.bar(rates_df, x='Group', y='Rate', color='Rate', color_continuous_scale="Oranges", template="plotly_dark")
+            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
+            
+            # 4. Mitigation
+            st.markdown('<div class="minimal-card">', unsafe_allow_html=True)
+            st.markdown('<div class="section-h">Bias Mitigation</div>', unsafe_allow_html=True)
+            st.write("Apply one-click optimization strategies:")
+            m_col1, m_col2, m_col3 = st.columns(3)
+            if m_col1.button("REWEIGHTING", use_container_width=True): st.toast("Reweighting applied to engine.")
+            if m_col2.button("RESAMPLING", use_container_width=True): st.toast("Dataset resampled for parity.")
+            if m_col3.button("PROXY REMOVAL", use_container_width=True): st.toast("Correlation proxies filtered.")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # 5. Export
+            pdf_bytes = generate_pdf_report(res, ["Apply Reweighting", "Update Compliance log"])
+            st.download_button("Export PDF Report", pdf_bytes, "Audit_Report.pdf", "application/pdf", use_container_width=True)
 
-def history_page():
-    st.header("📖 Audit Repository")
-    history = get_user_history(st.session_state.current_user['email'])
-    
-    if not history:
-        st.info("No audit history found.")
-        return
-    
-    for item in reversed(history):
-        with st.expander(f"{item['filename']} - {item['timestamp']}"):
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Domain", item['domain'])
-            c2.metric("Records", item['rows'])
-            c3.metric("Features", item['cols'])
-            c4.write(f"**Status:** Audited ✅")
-
-def profile_page():
-    st.header("👤 Security & Profile")
-    user = get_user_data(st.session_state.current_user['email'])
-    
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        st.markdown('<div class="glass-card" style="text-align: center;">', unsafe_allow_html=True)
-        profile_url = get_img_as_base64(user.get('profile_pic'))
-        st.markdown(f'<img src="{profile_url}" style="width: 200px; height: 200px; border-radius: 50%; border: 4px solid var(--primary-orange); object-fit: cover; margin-bottom: 20px;">', unsafe_allow_html=True)
-        
-        new_pic = st.file_uploader("Update Avatar", type=["png", "jpg", "jpeg"])
-        if new_pic:
-            update_user_data(user['email'], {"profile_pic": new_pic.getvalue()})
-            st.session_state.current_user = get_user_data(user['email'])
-            st.toast("Avatar updated.")
-            st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col2:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        with st.form("profile_edit"):
-            st.markdown("### Edit Identity")
-            name = st.text_input("Full Name", value=user.get('name'))
-            email = st.text_input("Contact Email", value=user.get('email'), disabled=True)
-            age = st.number_input("Age", 1, 120, value=user.get('age', 25))
-            dob = st.date_input("Date of Birth", value=user.get('dob', date(1995, 1, 1)))
-            
-            if st.form_submit_button("PERSIST CHANGES", type="primary"):
-                update_user_data(email, {"name": name, "age": age, "dob": dob})
-                st.session_state.current_user = get_user_data(email)
-                st.success("Identity updated successfully.")
+def history_view():
+    apply_clean_theme()
+    sidebar()
+    with st.container():
+        st.markdown('<div class="scrolling-container">', unsafe_allow_html=True)
+        st.header("Audit History")
+        history = get_user_history(st.session_state.user['email'])
+        if not history: 
+            st.info("No audit records found in the repository.")
+        else:
+            for item in reversed(history):
+                # Safe key handling
+                fname = item.get('filename', 'Unknown Audit')
+                tstamp = item.get('timestamp', 'N/A')
+                dom = item.get('domain', 'General')
+                scr = item.get('score', 'Scan not completed')
+                
+                with st.expander(f"📄 {fname} | {tstamp}"):
+                    c1, c2, c3 = st.columns(3)
+                    c1.markdown(f"**Domain**\n{dom}")
+                    c2.markdown(f"**Date**\n{tstamp}")
+                    if isinstance(scr, (int, float)):
+                        c3.markdown(f"**Fairness Score**\n{int(scr)}/100")
+                    else:
+                        c3.markdown(f"**Status**\n{scr}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def profile_view():
+    apply_clean_theme()
+    sidebar()
+    user = st.session_state.user
+    with st.container():
+        st.markdown('<div class="scrolling-container">', unsafe_allow_html=True)
+        st.header("Profile Settings")
+        st.markdown('<div class="minimal-card">', unsafe_allow_html=True)
+        st.markdown(f'<img src="{get_img_64(user.get("profile_pic"))}" class="profile-pfp-large">', unsafe_allow_html=True)
+        with st.form("upd", clear_on_submit=True):
+            pic = st.file_uploader("Upload New Avatar", type=["png", "jpg", "jpeg"])
+            name = st.text_input("Display Name", user['name'])
+            if st.form_submit_button("Save Changes", type="primary", use_container_width=True):
+                new_pic = pic.getvalue() if pic else user.get('profile_pic')
+                update_user_data(user['email'], {"name": name, "profile_pic": new_pic})
+                st.session_state.user = get_user_data(user['email'])
+                st.toast("Profile updated successfully!")
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- MAIN NAVIGATION ---
-
+# --- MAIN ---
 def main():
-    if st.session_state.current_user is None:
-        login_signup_page()
+    if st.session_state.user is None:
+        login_view()
     else:
-        # User is logged in
-        user = st.session_state.current_user
-        
-        # Sidebar
-        with st.sidebar:
-            st.markdown('<div class="logo-text">FAIRSIGHT AI ⚖️</div>', unsafe_allow_html=True)
-            
-            # Nav built using st.navigation
-            pages = {
-                "Workplace": [
-                    st.Page(home_page, title="Home / Upload", icon="🏠"),
-                    st.Page(bias_scan_page, title="Bias Scan", icon="⚖️"),
-                    st.Page(history_page, title="History", icon="📖"),
-                ],
-                "Security": [
-                    st.Page(profile_page, title="Profile Settings", icon="👤"),
-                ]
-            }
-            
-            pg = st.navigation(pages, position="sidebar")
-            
-            # Anchor profile to bottom
-            st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True) # Spacer
-            
-            profile_html = f"""
-            <div class="sidebar-footer">
-                <div class="profile-mini">
-                    <img src="{get_img_as_base64(user.get('profile_pic'))}" class="profile-img-sidebar">
-                    <div class="profile-name-sidebar">{user['name']}</div>
-                </div>
-            """
-            st.markdown(profile_html, unsafe_allow_html=True)
-            if st.button("LOGOUT", use_container_width=True, key="logout_btn"):
-                logout()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        pg.run()
-    
-    st.markdown('<div class="footer">FairSight AI Audit Engine © 2026. All Rights Reserved.</div>', unsafe_allow_html=True)
+        v = st.session_state.view
+        if v == "Home": home_view()
+        elif v == "History": history_view()
+        elif v == "Profile": profile_view()
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,38 @@
+{
+    "Adult Census": {
+        "protected_attribute": "gender",
+        "standard_disparity": 0.19,
+        "standard_accuracy": 0.85,
+        "source": "UCI Machine Learning Repository"
+    },
+    "German Credit": {
+        "protected_attribute": "age",
+        "standard_disparity": 0.14,
+        "standard_accuracy": 0.72,
+        "source": "UCI Machine Learning Repository"
+    },
+    "COMPAS": {
+        "protected_attribute": "race",
+        "standard_disparity": 0.23,
+        "standard_accuracy": 0.67,
+        "source": "ProPublica"
+    },
+    "Bank Marketing": {
+        "protected_attribute": "age",
+        "standard_disparity": 0.16,
+        "standard_accuracy": 0.89,
+        "source": "UCI Machine Learning Repository"
+    },
+    "Synthetic Hiring": {
+        "protected_attribute": "gender",
+        "standard_disparity": 0.25,
+        "standard_accuracy": 0.82,
+        "source": "Custom Simulation"
+    },
+    "Healthcare Readmission": {
+        "protected_attribute": "race",
+        "standard_disparity": 0.12,
+        "standard_accuracy": 0.61,
+        "source": "Diabetes Dataset"
+    }
+}
