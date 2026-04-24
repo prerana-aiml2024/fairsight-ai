@@ -211,6 +211,13 @@
                 "score": 90.0,
                 "timestamp": "2026-04-24",
                 "date": "2026-04-24T19:46:54.573393"
+            },
+            {
+                "filename": "sample_bias_data.csv",
+                "domain": "Hiring",
+                "score": 90.0,
+                "timestamp": "2026-04-24",
+                "date": "2026-04-24T19:50:29.782106"
             }
         ]
     }
