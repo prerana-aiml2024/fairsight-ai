@@ -4,18 +4,25 @@ import numpy as np
 def detect_columns(df):
     """
     Automatically detects potential target and protected columns.
+    Returns (target_col, protected_cols_list)
     """
+    if df is None or df.empty:
+        return None, []
+
     cols = df.columns.tolist()
     
     # Heuristic for target column
-    target_keywords = ['target', 'outcome', 'label', 'status', 'decision', 'hired', 'loan', 'accepted']
+    target_keywords = ['target', 'outcome', 'label', 'status', 'decision', 'hired', 'loan', 'accepted', 'approved', 'prediction']
     potential_targets = [c for c in cols if any(kw in c.lower() for kw in target_keywords)]
     
-    # If no keywords, take the last column
-    target = potential_targets[0] if potential_targets else cols[-1]
+    # If no keywords, take the last column if it's likely a label (few unique values or numeric)
+    if not potential_targets:
+        target = cols[-1]
+    else:
+        target = potential_targets[0]
     
     # Heuristic for protected columns
-    protected_keywords = ['gender', 'sex', 'age', 'race', 'ethnicity', 'religion', 'education', 'region', 'nationality', 'marital']
+    protected_keywords = ['gender', 'sex', 'age', 'race', 'ethnicity', 'religion', 'education', 'region', 'nationality', 'marital', 'disability']
     protected = [c for c in cols if any(kw in c.lower() for kw in protected_keywords)]
     
     # Exclude target from protected

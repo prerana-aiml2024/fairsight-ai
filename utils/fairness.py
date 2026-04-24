@@ -12,65 +12,111 @@ def load_benchmarks():
         return {}
 
 def detect_advanced_bias(df, target_col, protected_col):
-    results = {}
-    benchmarks = load_benchmarks()
-    
-    # 1. Representation
-    counts = df[protected_col].value_counts(normalize=True).to_dict()
-    results['representation'] = {k: round(v * 100, 2) for k, v in counts.items()}
-    
-    # 2. Outcome
-    if pd.api.types.is_numeric_dtype(df[target_col]):
-        fav_outcome = df[target_col].max()
-    else:
-        fav_outcome = df[target_col].value_counts().idxmax()
+    """
+    Detects bias in the dataset using Fairlearn metrics.
+    """
+    try:
+        # Validation
+        if df is None or df.empty:
+            raise ValueError("Dataset is empty.")
+        if target_col not in df.columns or protected_col not in df.columns:
+            raise ValueError(f"Required columns '{target_col}' or '{protected_col}' not found.")
+
+        results = {}
+        benchmarks = load_benchmarks()
         
-    y_true = (df[target_col] == fav_outcome).astype(int)
-    mf = MetricFrame(metrics=selection_rate, y_true=y_true, y_pred=y_true, sensitive_features=df[protected_col])
-    rates = {str(k): round(v * 100, 2) for k, v in mf.by_group.to_dict().items()}
-    results['selection_rates'] = rates
-    
-    disparity = demographic_parity_difference(y_true, y_true, sensitive_features=df[protected_col])
-    results['fairness_score'] = max(0, 100 - (disparity * 100))
-    
-    # 3. Benchmark
-    matched_benchmark = None
-    for name, bench in benchmarks.items():
-        if bench['protected_attribute'].lower() in protected_col.lower():
-            matched_benchmark = bench
-            break
+        # Drop NaNs for the analysis
+        temp_df = df[[target_col, protected_col]].dropna()
+        if temp_df.empty:
+            raise ValueError("No data left after dropping missing values.")
+
+        # 1. Representation
+        counts = temp_df[protected_col].value_counts(normalize=True).to_dict()
+        results['representation'] = {str(k): round(v * 100, 2) for k, v in counts.items()}
+        
+        # 2. Outcome Processing
+        # Determine favorable outcome
+        if pd.api.types.is_numeric_dtype(temp_df[target_col]):
+            # If numeric, assume higher is better or 1 is better
+            fav_outcome = temp_df[target_col].max()
+        else:
+            # If categorical, try to find 'positive' keywords or use mode
+            fav_keywords = ['yes', 'approved', 'hired', 'pass', '1', 'success', 'good', 'accepted']
+            unique_vals = temp_df[target_col].unique()
+            fav_outcome = next((v for v in unique_vals if str(v).lower() in fav_keywords), unique_vals[0])
             
-    if matched_benchmark:
-        b_disparity = round(matched_benchmark['standard_disparity'] * 100, 2)
-        results['benchmark_comparison'] = {
-            "name": name,
-            "our_disparity": round(disparity * 100, 2),
-            "benchmark_disparity": b_disparity,
-            "benchmark_fairness_score": 100 - b_disparity # Higher is Better
-        }
-    else:
-        results['benchmark_comparison'] = {
-            "name": "General Industry Std", 
-            "our_disparity": round(disparity * 100, 2), 
-            "benchmark_disparity": 10.0,
-            "benchmark_fairness_score": 90.0
-        }
-
-    # 4. Detailed Explanation (Plain English)
-    if rates:
-        max_group = max(rates, key=rates.get)
-        min_group = min(rates, key=rates.get)
-        max_val = rates[max_group]
-        min_val = rates[min_group]
-        gap = round(max_val - min_val, 1)
-        prob_ratio = round((1 - (min_val / max(max_val, 0.1))) * 100, 1)
+        y_true = (temp_df[target_col] == fav_outcome).astype(int)
         
-        results['detailed_explanation'] = {
-            "attribute": protected_col,
-            "percentage": gap,
-            "comparison_text": f"Members of the {min_group} group are {prob_ratio}% less likely to receive favorable outcomes than {max_group} members (Gap: {gap}%).",
-            "impact": "This systemic disparity presents moderate to high risk of regulatory non-compliance and talent attrition. Historical bias in local data may be propagating through current decision patterns.",
-            "recommended_action": "We strongly recommend applying 'Reweighting' (Phase 3) to equalize the influence of different demographic segments before final production deployment."
-        }
+        # MetricFrame for selection rates
+        # In Fairlearn 0.10.0, use 'metrics' dictionary
+        mf = MetricFrame(
+            metrics={'selection_rate': selection_rate}, 
+            y_true=y_true, 
+            y_pred=y_true, # We are auditing the dataset labels
+            sensitive_features=temp_df[protected_col]
+        )
+        
+        # mf.by_group is a Series if only one metric is passed
+        by_group_series = mf.by_group
+        if isinstance(by_group_series, pd.DataFrame):
+            by_group_series = by_group_series['selection_rate']
+            
+        rates = {str(k): round(float(v) * 100, 2) for k, v in by_group_series.to_dict().items()}
+        results['selection_rates'] = rates
+        
+        # Fairness Score based on Demographic Parity Difference
+        disparity = demographic_parity_difference(
+            y_true, 
+            y_true, 
+            sensitive_features=temp_df[protected_col]
+        )
+        results['fairness_score'] = max(0, 100 - (float(disparity) * 100))
+        
+        # 3. Benchmark Comparison
+        matched_benchmark = None
+        for name, bench in benchmarks.items():
+            if bench.get('protected_attribute', '').lower() in protected_col.lower():
+                matched_benchmark = bench
+                matched_benchmark['name'] = name
+                break
+                
+        if matched_benchmark:
+            b_disparity = round(matched_benchmark['standard_disparity'] * 100, 2)
+            results['benchmark_comparison'] = {
+                "name": matched_benchmark['name'],
+                "our_disparity": round(float(disparity) * 100, 2),
+                "benchmark_disparity": b_disparity,
+                "benchmark_fairness_score": 100 - b_disparity
+            }
+        else:
+            results['benchmark_comparison'] = {
+                "name": "General Industry Std", 
+                "our_disparity": round(float(disparity) * 100, 2), 
+                "benchmark_disparity": 10.0,
+                "benchmark_fairness_score": 90.0
+            }
 
-    return results
+        # 4. Detailed Explanation
+        if rates:
+            max_group = max(rates, key=rates.get)
+            min_group = min(rates, key=rates.get)
+            max_val = rates[max_group]
+            min_val = rates[min_group]
+            gap = round(max_val - min_val, 1)
+            
+            # Avoid division by zero
+            denom = max(max_val, 0.1)
+            prob_ratio = round((1 - (min_val / denom)) * 100, 1)
+            
+            results['detailed_explanation'] = {
+                "attribute": protected_col,
+                "percentage": gap,
+                "comparison_text": f"Members of the {min_group} group are {prob_ratio}% less likely to receive favorable outcomes than {max_group} members (Gap: {gap}%).",
+                "impact": "This systemic disparity presents moderate to high risk of regulatory non-compliance. Historical bias in local data may be propagating through current decision patterns.",
+                "recommended_action": "We recommend applying 'Reweighting' to equalize the influence of different demographic segments."
+            }
+
+        return results
+    except Exception as e:
+        # Return a structure that allows the app to show the error
+        return {"error": str(e), "fairness_score": 0, "selection_rates": {}, "narrative": f"Error during analysis: {str(e)}"}

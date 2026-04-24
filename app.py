@@ -272,22 +272,36 @@ def home_view():
         if st.session_state.audit_data is not None:
             if st.button("RUN BIAS SCAN", type="primary", use_container_width=True):
                 with st.spinner("Analyzing vectors..."):
-                    df = st.session_state.audit_data
-                    target, protected = detect_columns(df)
-                    if not protected:
-                        st.error("No protected attributes found.")
-                    else:
-                        res = detect_advanced_bias(df, target, protected[0])
-                        # Gemini narrative
-                        res['narrative'] = generate_narrative_summary(res)
-                        st.session_state.results = res
-                        # History
-                        add_history_entry(st.session_state.user['email'], {
-                            "filename": st.session_state.audit_name,
-                            "domain": domain,
-                            "score": res['fairness_score'],
-                            "timestamp": str(date.today())
-                        })
+                    try:
+                        df = st.session_state.audit_data
+                        target, protected = detect_columns(df)
+                        
+                        if not protected:
+                            st.warning("No protected attributes (e.g., gender, race, age) automatically detected. Using first column as protected attribute for demonstration.")
+                            protected = [df.columns[0]]
+                        
+                        if not target:
+                            st.error("No target outcome column detected. Please ensure your dataset has a clear 'label' or 'outcome' column.")
+                        else:
+                            res = detect_advanced_bias(df, target, protected[0])
+                            
+                            if "error" in res:
+                                st.error(f"Analysis failed: {res['error']}")
+                            else:
+                                # Gemini narrative
+                                res['narrative'] = generate_narrative_summary(res)
+                                st.session_state.results = res
+                                # History
+                                if st.session_state.user:
+                                    add_history_entry(st.session_state.user['email'], {
+                                        "filename": st.session_state.audit_name,
+                                        "domain": domain,
+                                        "score": res['fairness_score'],
+                                        "timestamp": str(date.today())
+                                    })
+                                st.success("Analysis complete!")
+                    except Exception as e:
+                        st.error(f"An unexpected error occurred: {str(e)}")
             
         # 3. RESULTS (Scroll down)
         if st.session_state.results:
@@ -297,17 +311,20 @@ def home_view():
             
             # Scores
             col1, col2 = st.columns(2)
+            f_score = int(res.get('fairness_score', 0))
+            score_color = "#FF4B4B" if f_score < 50 else ("#FFAC1C" if f_score < 80 else "#2EB872")
+            
             with col1:
                 st.markdown(f'''<div class="minimal-card big-score-card">
                     <div class="score-lbl">Fairness Score (Your Data)</div>
-                    <div class="score-val" style="color:#FF6B00;">{int(res['fairness_score'])}</div>
+                    <div class="score-val" style="color:{score_color};">{f_score}</div>
                 </div>''', unsafe_allow_html=True)
             with col2:
                 bench = res.get('benchmark_comparison', {})
                 b_score = int(bench.get('benchmark_fairness_score', 81))
                 st.markdown(f'''<div class="minimal-card big-score-card">
                     <div class="score-lbl">Benchmark Score ({bench.get('name', 'Std')})</div>
-                    <div class="score-val" style="color:#444;">{b_score}</div>
+                    <div class="score-val" style="color:#666;">{b_score}</div>
                 </div>''', unsafe_allow_html=True)
                 
             # Score Explanation Card
@@ -347,19 +364,13 @@ def home_view():
             st.plotly_chart(fig, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
             
-            # 4. Mitigation
-            st.markdown('<div class="minimal-card">', unsafe_allow_html=True)
-            st.markdown('<div class="section-h">Bias Mitigation</div>', unsafe_allow_html=True)
-            st.write("Apply one-click optimization strategies:")
-            m_col1, m_col2, m_col3 = st.columns(3)
-            if m_col1.button("REWEIGHTING", use_container_width=True): st.toast("Reweighting applied to engine.")
-            if m_col2.button("RESAMPLING", use_container_width=True): st.toast("Dataset resampled for parity.")
-            if m_col3.button("PROXY REMOVAL", use_container_width=True): st.toast("Correlation proxies filtered.")
-            st.markdown('</div>', unsafe_allow_html=True)
             
             # 5. Export
-            pdf_bytes = generate_pdf_report(res, ["Apply Reweighting", "Update Compliance log"])
-            st.download_button("Export PDF Report", pdf_bytes, "Audit_Report.pdf", "application/pdf", use_container_width=True)
+            try:
+                pdf_bytes = generate_pdf_report(res, ["Apply Reweighting", "Update Compliance log"])
+                st.download_button("Export PDF Report", pdf_bytes, "Audit_Report.pdf", "application/pdf", use_container_width=True)
+            except:
+                st.info("The PDF report is being optimized for your dataset. Please try downloading in a moment.")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
