@@ -22,7 +22,9 @@ def generate_pdf_report(metrics, recommendations):
     pdf.set_font("Arial", size=10)
     
     f_score = metrics.get('fairness_score', 0)
+    attribute = metrics.get('detailed_explanation', {}).get('attribute', 'Protected Attribute')
     pdf.cell(effective_page_width, 8, txt=f"Fairness Score: {int(f_score)}/100", ln=1)
+    pdf.cell(effective_page_width, 8, txt=f"Protected Attribute: {attribute}", ln=1)
     pdf.cell(effective_page_width, 8, txt=f"Generation Date: {datetime.date.today()}", ln=1)
     pdf.ln(5)
     

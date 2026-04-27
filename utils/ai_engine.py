@@ -22,22 +22,23 @@ def generate_narrative_summary(metrics_summary):
     """
     f_score = int(metrics_summary.get('fairness_score', 0))
     rates = metrics_summary.get('selection_rates', {})
+    attribute = metrics_summary.get('detailed_explanation', {}).get('attribute', 'Protected Attribute')
     
     if not rates:
-        return "Audit Insight: No demographic disparities were identified in the primary scan. The system shows uniform distribution across subgroups."
+        return f"Audit Insight: No demographic disparities were identified for '{attribute}' in the primary scan. The system shows uniform distribution across subgroups."
 
     max_group = max(rates, key=rates.get)
     min_group = min(rates, key=rates.get)
     disparity = round(metrics_summary.get('benchmark_comparison', {}).get('our_disparity', 0), 1)
 
     if f_score > 80:
-        summary = f"Executive Summary: The system exhibits high demographic parity (score: {f_score}). Disparate impact is minimal, with only a {disparity}% variance detected between {max_group} and {min_group} groups."
+        summary = f"Executive Summary: The system exhibits high demographic parity for '{attribute}' (score: {f_score}). Disparate impact is minimal, with only a {disparity}% variance detected between {max_group} and {min_group} groups."
     elif f_score > 50:
-        summary = (f"Executive Summary: Moderate bias detected (score: {f_score}). Your data shows a {disparity}% success rate gap. "
+        summary = (f"Executive Summary: Moderate bias detected on '{attribute}' (score: {f_score}). Your data shows a {disparity}% success rate gap. "
                    f"Specifically, the {min_group} group receives significantly fewer favorable outcomes compared to {max_group}. "
                    "This imbalance suggests a need for targeted sampling or reweighting in Phase 3.")
     else:
-        summary = (f"Executive Summary: Critical Disparity Identified (score: {f_score}). Our scan confirms a severe {disparity}% bias gap. "
+        summary = (f"Executive Summary: Critical Disparity Identified for '{attribute}' (score: {f_score}). Our scan confirms a severe {disparity}% bias gap. "
                    f"The systemic disadvantage against the {min_group} group presents high compliance and legal risks. "
                    "Immediate intervention via threshold tuning or algorithmic mitigation is required.")
 

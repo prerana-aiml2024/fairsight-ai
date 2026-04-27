@@ -344,6 +344,13 @@
                 "score": 0,
                 "timestamp": "2026-04-27",
                 "date": "2026-04-27T20:35:14.398371"
+            },
+            {
+                "filename": "healthcare_low_bias.csv",
+                "domain": "Healthcare",
+                "score": 100.0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:39:40.492797"
             }
         ]
     }
