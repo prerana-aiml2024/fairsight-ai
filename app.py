@@ -9,7 +9,7 @@ import json
 
 # Custom Utilities
 from utils.storage import get_user_data, update_user_data, get_user_history, add_history_entry, verify_user
-from utils.detection import detect_columns
+from utils.detection import detect_columns, suggest_primary_attribute
 from utils.fairness import detect_advanced_bias
 from utils.ai_engine import generate_narrative_summary
 from utils.mitigation import apply_reweighting, apply_resampling
@@ -163,6 +163,8 @@ def init_session():
     if 'view' not in st.session_state: st.session_state.view = "Home"
     if 'audit_data' not in st.session_state: st.session_state.audit_data = None
     if 'results' not in st.session_state: st.session_state.results = None
+    if 'selected_target' not in st.session_state: st.session_state.selected_target = None
+    if 'selected_protected' not in st.session_state: st.session_state.selected_protected = None
 
 init_session()
 
@@ -264,8 +266,43 @@ def home_view():
                 df = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
                 st.session_state.audit_data = df
                 st.session_state.audit_name = file.name
+                
+                # Auto-detect columns
+                target, protected = detect_columns(df)
+                st.session_state.detected_protected = protected
+                st.session_state.selected_target = target
+                
+                # Suggest primary based on domain
+                if protected:
+                    st.session_state.selected_protected = suggest_primary_attribute(protected, domain)
+                
                 st.success(f"Loaded {len(df)} records.")
             except Exception as e: st.error(f"Error: {e}")
+        
+        # Attribute Selection
+        if st.session_state.audit_data is not None:
+            st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+            cols = st.session_state.audit_data.columns.tolist()
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                target_col = st.selectbox("Target Outcome Column", cols, 
+                                        index=cols.index(st.session_state.selected_target) if st.session_state.selected_target in cols else 0)
+                st.session_state.selected_target = target_col
+            with c2:
+                # Use detected protected attributes as options, plus allow any other column
+                protected_options = st.session_state.get('detected_protected', [])
+                # Ensure all columns are available just in case
+                if not protected_options:
+                    protected_options = cols
+                
+                # Suggest default based on domain if not already set or if domain changed
+                suggested = suggest_primary_attribute(protected_options, domain)
+                default_idx = protected_options.index(suggested) if suggested in protected_options else 0
+                
+                protected_col = st.selectbox("Protected Attribute (Bias Source)", protected_options, index=default_idx)
+                st.session_state.selected_protected = protected_col
+                
         st.markdown('</div>', unsafe_allow_html=True)
         
         # 2. RUN SCAN
@@ -273,17 +310,15 @@ def home_view():
             if st.button("RUN BIAS SCAN", type="primary", use_container_width=True):
                 with st.spinner("Analyzing vectors..."):
                     try:
-                        df = st.session_state.audit_data
-                        target, protected = detect_columns(df)
+                        target = st.session_state.selected_target
+                        protected_col = st.session_state.selected_protected
                         
-                        if not protected:
-                            st.warning("No protected attributes (e.g., gender, race, age) automatically detected. Using first column as protected attribute for demonstration.")
-                            protected = [df.columns[0]]
-                        
-                        if not target:
-                            st.error("No target outcome column detected. Please ensure your dataset has a clear 'label' or 'outcome' column.")
+                        if not protected_col:
+                            st.error("Please select a protected attribute to analyze.")
+                        elif not target:
+                            st.error("No target outcome column detected.")
                         else:
-                            res = detect_advanced_bias(df, target, protected[0])
+                            res = detect_advanced_bias(df, target, protected_col)
                             
                             if "error" in res:
                                 st.error(f"Analysis failed: {res['error']}")

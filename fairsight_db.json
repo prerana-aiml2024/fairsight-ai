@@ -218,6 +218,132 @@
                 "score": 90.0,
                 "timestamp": "2026-04-24",
                 "date": "2026-04-24T19:50:29.782106"
+            },
+            {
+                "filename": "biased_ai_dataset.csv",
+                "domain": "Hiring",
+                "score": 51.275510204081634,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:26:03.949055"
+            },
+            {
+                "filename": "banking_high_bias.csv",
+                "domain": "Banking",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:26:33.457802"
+            },
+            {
+                "filename": "banking_high_bias.csv",
+                "domain": "Banking",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:26:37.910699"
+            },
+            {
+                "filename": "banking_low_bias.csv",
+                "domain": "Banking",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:27:32.659543"
+            },
+            {
+                "filename": "banking_low_bias.csv",
+                "domain": "Banking",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:27:58.163218"
+            },
+            {
+                "filename": "banking_low_bias.csv",
+                "domain": "Banking",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:28:01.851744"
+            },
+            {
+                "filename": "healthcare_high_bias.csv",
+                "domain": "Healthcare",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:28:52.822548"
+            },
+            {
+                "filename": "healthcare_low_bias.csv",
+                "domain": "Healthcare",
+                "score": 100.0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:29:14.475567"
+            },
+            {
+                "filename": "healthcare_low_bias.csv",
+                "domain": "Healthcare",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:29:26.624435"
+            },
+            {
+                "filename": "healthcare_low_bias.csv",
+                "domain": "Healthcare",
+                "score": 100.0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:29:39.316011"
+            },
+            {
+                "filename": "legal_high_bias.csv",
+                "domain": "Legal",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:30:14.617816"
+            },
+            {
+                "filename": "legal_high_bias.csv",
+                "domain": "Legal",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:30:15.519185"
+            },
+            {
+                "filename": "legal_high_bias.csv",
+                "domain": "Legal",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:30:37.027264"
+            },
+            {
+                "filename": "legal_low_bias.csv",
+                "domain": "Legal",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:31:11.306933"
+            },
+            {
+                "filename": "legal_low_bias.csv",
+                "domain": "Legal",
+                "score": 100.0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:31:17.464914"
+            },
+            {
+                "filename": "biased_ai_dataset.csv",
+                "domain": "Legal",
+                "score": 51.275510204081634,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:32:13.991759"
+            },
+            {
+                "filename": "biased_ai_dataset.csv",
+                "domain": "Legal",
+                "score": 16.666666666666657,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:32:28.122375"
+            },
+            {
+                "filename": "healthcare_low_bias.csv",
+                "domain": "Healthcare",
+                "score": 0,
+                "timestamp": "2026-04-27",
+                "date": "2026-04-27T20:35:14.398371"
             }
         ]
     }

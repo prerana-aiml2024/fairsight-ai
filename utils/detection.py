@@ -12,7 +12,7 @@ def detect_columns(df):
     cols = df.columns.tolist()
     
     # Heuristic for target column
-    target_keywords = ['target', 'outcome', 'label', 'status', 'decision', 'hired', 'loan', 'accepted', 'approved', 'prediction']
+    target_keywords = ['target', 'outcome', 'label', 'status', 'decision', 'hired', 'loan', 'accepted', 'approved', 'prediction', 'credit_risk']
     potential_targets = [c for c in cols if any(kw in c.lower() for kw in target_keywords)]
     
     # If no keywords, take the last column if it's likely a label (few unique values or numeric)
@@ -22,13 +22,38 @@ def detect_columns(df):
         target = potential_targets[0]
     
     # Heuristic for protected columns
-    protected_keywords = ['gender', 'sex', 'age', 'race', 'ethnicity', 'religion', 'education', 'region', 'nationality', 'marital', 'disability']
+    protected_keywords = ['gender', 'sex', 'age', 'race', 'ethnicity', 'religion', 'education', 'region', 'nationality', 'marital', 'disability', 'native-country']
     protected = [c for c in cols if any(kw in c.lower() for kw in protected_keywords)]
     
     # Exclude target from protected
     protected = [p for p in protected if p != target]
     
     return target, protected
+
+def suggest_primary_attribute(detected_protected, domain):
+    """
+    Suggests the most relevant protected attribute based on the domain.
+    """
+    domain = domain.lower()
+    if not detected_protected:
+        return None
+        
+    priorities = {
+        'hiring': ['gender', 'race', 'ethnicity', 'age'],
+        'banking': ['race', 'gender', 'age', 'marital', 'nationality'],
+        'healthcare': ['race', 'age', 'gender', 'region'],
+        'legal': ['race', 'ethnicity', 'gender', 'age'],
+        'general': ['gender', 'race', 'age']
+    }
+    
+    relevant_priorities = priorities.get(domain, priorities['general'])
+    
+    for pref in relevant_priorities:
+        for attr in detected_protected:
+            if pref in attr.lower():
+                return attr
+                
+    return detected_protected[0]
 
 def calculate_fairness_metrics(df, target_col, protected_col):
     """
